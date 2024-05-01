@@ -25,6 +25,9 @@ struct offer_t {
     int time;
     int quantity;
     quote_t type;
+
+    offer_t(float price, int time, int quantity, quote_t type) : 
+        price(price), time(time), quantity(quantity), type(type) {}
 };
 
 struct BidComparator {
