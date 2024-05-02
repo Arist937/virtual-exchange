@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <string>
 #include <vector>
+#include <chrono>
 
 struct offer_t;
 
@@ -10,7 +11,8 @@ using std::string,
     std::unordered_map,
     std::priority_queue,
     std::tuple,
-    std::vector;
+    std::vector,
+    std::chrono::steady_clock;
 
 template<typename T>
 using OrderBook = unordered_map<string, priority_queue<offer_t, vector<offer_t>, T>>;
@@ -23,11 +25,11 @@ enum class quote_t {
 struct offer_t {
     int id;
     float price;
-    int time;
+    steady_clock::time_point time;
     int quantity;
     quote_t type;
 
-    offer_t(int id, float price, int time, int quantity, quote_t type) : 
+    offer_t(int id, float price, steady_clock::time_point time, int quantity, quote_t type) : 
         id(id), price(price), time(time), quantity(quantity), type(type) {}
 };
 

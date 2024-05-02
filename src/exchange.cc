@@ -1,13 +1,17 @@
 #include <stdio.h>
+#include <chrono>
+
 #include "include/exchange.h"
 
 void Exchange::add_order(int id, string product, quote_t type, float price, int quantity) {
+    using std::chrono::steady_clock;
+
     switch (type) {
         case quote_t::BID:
-            bid_queues[product].emplace(id, price, 0, quantity, type);
+            bid_queues[product].emplace(id, price, steady_clock::now(), quantity, type);
             break;
         case quote_t::ASK:
-            ask_queues[product].emplace(id, price, 0, quantity, type);
+            ask_queues[product].emplace(id, price, steady_clock::now(), quantity, type);
             break;
     }
 
