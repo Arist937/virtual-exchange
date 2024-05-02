@@ -21,13 +21,14 @@ enum class quote_t {
 };
 
 struct offer_t {
+    int id;
     float price;
     int time;
     int quantity;
     quote_t type;
 
-    offer_t(float price, int time, int quantity, quote_t type) : 
-        price(price), time(time), quantity(quantity), type(type) {}
+    offer_t(int id, float price, int time, int quantity, quote_t type) : 
+        id(id), price(price), time(time), quantity(quantity), type(type) {}
 };
 
 struct BidComparator {
@@ -57,5 +58,5 @@ private:
 
     void match(string product);
 public:
-    void add_order(string product, quote_t type, float price, int quantity);
+    void add_order(int id, string product, quote_t type, float price, int quantity);
 };
