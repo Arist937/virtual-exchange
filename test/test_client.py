@@ -16,8 +16,12 @@ def main():
         sock.connect((server_ip, server_port))
         print(f"Connected to server at {server_ip}:{server_port}")
 
-        # Send some commands
-        send_command(sock, "APPL BID 10.0 15")
+        while True:
+            command = input("> ")
+            if command == "exit":
+                break
+            
+            send_command(sock, command)
 
         # Wait a bit before closing the connection
         time.sleep(2)
