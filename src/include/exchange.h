@@ -44,5 +44,6 @@ public:
     Exchange(int port) : port(port) {}
 
     int open();
-    void add_order(offer_t offer, string product);
+    void add_order(string product, offer_t offer);
+    void add_order(string product, int id, float price, int quantity, quote_t type);
 };

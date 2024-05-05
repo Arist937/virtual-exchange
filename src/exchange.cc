@@ -11,15 +11,28 @@
 
 #include "include/exchange.h"
 
-void Exchange::add_order(offer_t offer, string product) {
-    using std::chrono::steady_clock;
-
+void Exchange::add_order(string product, offer_t offer) {
     switch (offer.type) {
         case quote_t::BID:
             bid_queues[product].push(offer);
             break;
         case quote_t::ASK:
             ask_queues[product].push(offer);
+            break;
+    }
+
+    match(product);
+}
+
+void Exchange::add_order(string product, int id, float price, int quantity, quote_t type) {
+    using std::chrono::steady_clock;
+
+    switch (type) {
+        case quote_t::BID:
+            bid_queues[product].emplace(id, price, steady_clock::now(), quantity, type);
+            break;
+        case quote_t::ASK:
+            ask_queues[product].emplace(id, price, steady_clock::now(), quantity, type);
             break;
     }
 
@@ -61,7 +74,7 @@ void Exchange::match(string product) {
 }
 
 int Exchange::open() {
-    using std::cerr, std::cout;
+    using std::cerr;
 
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
@@ -117,55 +130,52 @@ int Exchange::open() {
 
     // Event loop begins
     do {
-    cout << "Polling...\n";
-    int rc = poll(fds, nfds, timeout);
-    if (rc < 0) {
-        cerr << "Poll failed\n";
-        break;
-    }
-
-    if (rc == 0) {
-        cerr << "Poll timed out\n";
-        break;
-    }
-
-    nfds_t current_nfds = nfds;
-    for (nfds_t i = 0; i < current_nfds; ++i) {
-        if (fds[i].revents & POLLIN) {
-        // Case: Incoming connection
-        if (fds[i].fd == server_fd) {
-            cout << "Accepting incoming clients...\n";
-            int client_fd;
-            // Loop to accept all incoming connections
-            do {
-            client_fd = accept(server_fd, NULL, NULL);
-            if (client_fd < 0) {
-                cerr << "Client connection failed\n";
-                break;
-            }
-
-            fds[nfds].fd = client_fd;
-            fds[nfds].events = POLLIN;
-            ++nfds;
-            } while (client_fd != -1);
+        printf("Polling...\n");
+        int rc = poll(fds, nfds, timeout);
+        if (rc < 0) {
+            cerr << "Poll failed\n";
+            break;
         }
-        // Case: Client is ready for data
-        else {
-            cout << "Handling client request...\n";
-            int bytes = handle_request(fds[i].fd);
-            if (bytes < 0) {
-                cerr << "Error handling client request\n";
-                return 1;
-            }
 
-            if (bytes == 0) {
-                cout << "Client closed\n";
-                memset(fds + i, 0, sizeof(pollfd));
-                close(fds[i].fd);
+        if (rc == 0) {
+            cerr << "Poll timed out\n";
+            break;
+        }
+
+        nfds_t current_nfds = nfds;
+        for (nfds_t i = 0; i < current_nfds; ++i) {
+            if (fds[i].revents & POLLIN) {
+                // Case: Incoming connection
+                if (fds[i].fd == server_fd) {
+                    printf("Accepting incoming clients...\n");
+                    int client_fd;
+                    // Loop to accept all incoming connections
+                    do {
+                        client_fd = accept(server_fd, NULL, NULL);
+                        printf("Client connection successful [FD: %d]", client_fd);
+
+                        fds[nfds].fd = client_fd;
+                        fds[nfds].events = POLLIN;
+                        ++nfds;
+                    } while (client_fd >= 0);
+                }
+                // Case: Client is ready for data
+                else {
+                    printf("Handling client request...\n");
+                    int bytes = handle_request(fds[i].fd);
+                    if (bytes < 0) {
+                        printf("Error handling client request\n");
+                        return 1;
+                    }
+
+                    if (bytes == 0) {
+                        printf("Client closed\n");
+                        memset(fds + i, 0, sizeof(pollfd));
+                        close(fds[i].fd);
+                    }
+                }
             }
         }
-        }
-    }
     } while (true);
 
     for (nfds_t i = 0; i < nfds; ++i) {
@@ -190,6 +200,7 @@ int Exchange::handle_request(int client_fd) {
     string req(buffer, 0, bytes);
     stringstream req_stream(req);
     request_t dummy = request_t::Order;
+
     // Format: PRODUCT TYPE PRICE QUANTITY
     switch (dummy) {
         case request_t::Order:
@@ -208,7 +219,7 @@ int Exchange::handle_request(int client_fd) {
 
             printf("ADDING ORDER: %s, %s, %.2f, %d\n", product.c_str(), type.c_str(), price, quantity);
             offer_t offer(price, quantity, type);
-            add_order(offer, product);
+            add_order(product, offer);
             break;
         }
     }
