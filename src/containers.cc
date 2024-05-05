@@ -35,7 +35,7 @@ pollfd pollfd_container::get_pollfd(int index) {
 }
 
 pollfd* pollfd_container::get_pointer() {
-    return &fds[0];
+    return fds.data();
 }
 
 nfds_t pollfd_container::get_nfds() {
