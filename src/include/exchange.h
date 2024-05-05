@@ -22,6 +22,11 @@ enum class quote_t {
     ASK
 };
 
+const unordered_map<string, quote_t> str_to_quote_t = {
+    {"BID", quote_t::BID},
+    {"ASK", quote_t::ASK}
+};
+
 struct offer_t {
     int id;
     float price;
@@ -29,8 +34,8 @@ struct offer_t {
     int quantity;
     quote_t type;
 
-    offer_t(int id, float price, steady_clock::time_point time, int quantity, quote_t type) : 
-        id(id), price(price), time(time), quantity(quantity), type(type) {}
+    offer_t(float price, int quantity, string type) : 
+        id(0), price(price), time(steady_clock::now()), quantity(quantity), type(str_to_quote_t.at(type)) {}
 };
 
 struct BidComparator {
@@ -60,5 +65,5 @@ private:
 
     void match(string product);
 public:
-    void add_order(int id, string product, quote_t type, float price, int quantity);
+    void add_order(offer_t offer, string product);
 };
