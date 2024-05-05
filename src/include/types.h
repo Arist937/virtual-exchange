@@ -25,6 +25,9 @@ struct offer_t {
     int quantity;
     quote_t type;
 
+    offer_t(int id, float price, int quantity, quote_t type) :
+        id(id), price(price), time(steady_clock::now()), quantity(quantity), type(type) {};
+
     offer_t(float price, int quantity, string type) : 
         id(0), price(price), time(steady_clock::now()), quantity(quantity), type(str_to_quote_t.at(type)) {}
 };

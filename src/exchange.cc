@@ -5,11 +5,11 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <sstream>
-#include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
 
 #include "include/exchange.h"
+#include "include/containers.h"
 
 void Exchange::add_order(string product, offer_t offer) {
     switch (offer.type) {
@@ -29,10 +29,10 @@ void Exchange::add_order(string product, int id, float price, int quantity, quot
 
     switch (type) {
         case quote_t::BID:
-            bid_queues[product].emplace(id, price, steady_clock::now(), quantity, type);
+            bid_queues[product].emplace(id, price, quantity, type);
             break;
         case quote_t::ASK:
-            ask_queues[product].emplace(id, price, steady_clock::now(), quantity, type);
+            ask_queues[product].emplace(id, price, quantity, type);
             break;
     }
 
@@ -118,71 +118,59 @@ int Exchange::open() {
         return 1;
     }
 
-    // Set up event loop vars
-    struct pollfd fds[100];
-    memset(fds, 0, sizeof(fds));
-
-    fds[0].fd = server_fd;
-    fds[0].events = POLLIN;
-
-    nfds_t nfds = 1;
-    int timeout = (3 * 60 * 1000);
+    // Set up custom container for pollfds
+    pollfd_container poll_fds;
+    poll_fds.add(server_fd, POLLIN);
 
     // Event loop begins
-    do {
+    while (true) {
         printf("Polling...\n");
-        int rc = poll(fds, nfds, timeout);
-        if (rc < 0) {
+        int client_fd, seen_events = 0, nfds = poll_fds.get_nfds();
+        int nevents = poll(poll_fds.get_pointer(), nfds, -1);
+        if (nevents < 0) {
             cerr << "Poll failed\n";
             break;
         }
 
-        if (rc == 0) {
-            cerr << "Poll timed out\n";
-            break;
-        }
-
-        nfds_t current_nfds = nfds;
-        for (nfds_t i = 0; i < current_nfds; ++i) {
-            if (fds[i].revents & POLLIN) {
+        int index = 0;
+        while (index < nfds) {
+            if (seen_events == nevents) {
+                break;
+            }
+            
+            pollfd curr_fd = poll_fds.get_pollfd(index);
+            if (curr_fd.revents & POLLIN) {
                 // Case: Incoming connection
-                if (fds[i].fd == server_fd) {
+                if (curr_fd.fd == server_fd) {
                     printf("Accepting incoming clients...\n");
-                    int client_fd;
                     // Loop to accept all incoming connections
                     do {
                         client_fd = accept(server_fd, NULL, NULL);
-                        printf("Client connection successful [FD: %d]", client_fd);
+                        poll_fds.add(client_fd, POLLIN);
 
-                        fds[nfds].fd = client_fd;
-                        fds[nfds].events = POLLIN;
-                        ++nfds;
+                        printf("Client connection successful [FD: %d]\n", client_fd);
                     } while (client_fd >= 0);
                 }
                 // Case: Client is ready for data
                 else {
                     printf("Handling client request...\n");
-                    int bytes = handle_request(fds[i].fd);
-                    if (bytes < 0) {
-                        printf("Error handling client request\n");
-                        return 1;
-                    }
+                    int bytes = handle_request(curr_fd.fd);
+                    if (bytes <= 0) {
+                        poll_fds.erase(index);
 
-                    if (bytes == 0) {
                         printf("Client closed\n");
-                        memset(fds + i, 0, sizeof(pollfd));
-                        close(fds[i].fd);
+                        continue;
                     }
                 }
-            }
-        }
-    } while (true);
 
-    for (nfds_t i = 0; i < nfds; ++i) {
-        if(fds[i].fd >= 0) {
-            close(fds[i].fd);
+                ++seen_events;
+            }
+
+            ++index;
         }
     }
+
+    poll_fds.eraseall();
 
     return 0;
 }
